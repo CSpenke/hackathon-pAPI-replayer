@@ -11,6 +11,25 @@ http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/fil
 	</http:request-config>
 	<file:config name="File_Config" doc:name="File Config" doc:id="cc1219ec-84fd-4c64-8b78-54f05b6046f9" >
 	</file:config>
+	<sub-flow name="writeMetricsToFile" doc:id="c7be4888-17b4-44ab-943a-2bf936f8aa33" >
+		<logger level="INFO" doc:name="Logger" doc:id="40826c76-cab8-482d-b593-c2b17ed6c147" message="#['Milliseconds: ' ++ (vars.msAfterRequest - vars.msBeforeRequest)]" />
+		<ee:transform doc:name="Transform Message" doc:id="d404b263-02a5-4e09-b64a-6f00a6a0a488" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+var period = (vars.msAfterRequest - vars.msBeforeRequest)
+output application/json
+---
+{
+	"runtimePrimarySystem": vars.runtimePrimarySystem,
+	"runtimeSecondary": period as Number {unit: "milliseconds"},
+	"isEqual": vars.primarySystemOutputAsString == payload.message,
+	"timestamp": now() >> "Europe/Berlin"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="8216962a-224c-4437-b0a1-105aa8213d4d" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json" mode="APPEND">
+		</file:write>
+	</sub-flow>
 	<sub-flow name="writeSecondaryToFile" doc:id="64f73bc6-42ed-406e-bde5-0c2dbe55a4a6" >
 		<set-variable value="${mule.home}/apps/${app.name}/recordSecondary.csv" doc:name="setSecondaryRecordPath" doc:id="2b015989-18a2-4863-9c37-829a3551d396" variableName="setSecondaryRecordPath"/>
 		<ee:transform doc:name="Transform Message" doc:id="8ca40eeb-9a72-4683-a417-b5dd6152ece5">
@@ -30,6 +49,7 @@ output application/json
   "registrationDate": payload.registrationDate,
   "email": payload.email,
   "website": payload.website,
+  "runtimePrimarySystem": payload.runtimePrimarySystem,
   "qpFirstName": vars.firstName,
   "qpLastName": vars.lastName,
   "qpSwitchToCloud": vars.switchToCloud,
@@ -66,6 +86,7 @@ output application/json
   "registrationDate": payload.registrationDate,
   "email": payload.email,
   "website": payload.website,
+  "runtimePrimarySystem": payload.runtimePrimarySystem,
   "qpFirstName": vars.firstName,
   "qpLastName": vars.lastName,
   "qpSwitchToCloud": vars.switchToCloud,
@@ -106,16 +127,19 @@ output application/json
   "registrationDate": payload.registrationDate,
   "email": payload.email,
   "website": payload.website,
+  "runtimePrimarySystem": payload.runtimePrimarySystem,
 	message: ((((((((((payload.firstName
 default "") ++ payload.lastName) ++ payload.age as String) ++ payload.isStudent as String ++ payload.hobbies[0]) ++ payload.address.street) ++ payload.address.city) ++ payload.address.zipCode) ++ payload.birthDate) ++ payload.registrationDate) ++ payload.email) ++ payload.website
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+		<set-variable value="#[payload.runtimePrimarySystem]" doc:name="SetRuntimePrimarySystem" doc:id="8ef4911b-4d55-423d-a2fb-4e5b7a29ed27" variableName="runtimePrimarySystem" />
 		<set-variable value="#[payload.message]" doc:name="SetPrimarySystemOutputAsString" doc:id="f02bcffb-752f-456e-aa94-8b449cc4f4df" variableName="primarySystemOutputAsString"/>
 		<logger level="INFO" doc:name="Logger" doc:id="7ce7a264-4c39-4965-9ba4-c3ced665292e" message="#['primary system string' ++ vars.primarySystemOutputAsString]"/>
 		<flow-ref doc:name="Flow Reference" doc:id="b68ef953-9618-4f72-8f64-a7d2ac5b34ab" name="writePrimaryToFileSubFlow" />
 		<choice doc:name="Choice" doc:id="6e8d2d9a-e436-40de-b4df-a3779e852b51" >
 			<when expression="#[vars.switchToCloud == true]">
+				<set-variable value="#[now()]" doc:name="msBeforeRequest" doc:id="215fc3b8-dafb-4470-8113-f8b6924148a5" variableName="msBeforeRequest"/>
 				<http:request method="GET" doc:name="Request Replay Mainframe" doc:id="c288dbff-530d-4e7a-a3c9-0fb8db4de1ec" config-ref="HTTP_Request_configuration" path="/real_address">
 					<http:query-params ><![CDATA[#[output application/java
 ---
@@ -124,9 +148,11 @@ default "") ++ payload.lastName) ++ payload.age as String) ++ payload.isStudent 
 	lastName : vars.lastName
 }]]]></http:query-params>
 				</http:request>
+				<set-variable value="#[now()]" doc:name="msAfterRequest" doc:id="54208d61-5762-4044-be0f-d8ecd14ee76c" variableName="msAfterRequest"/>
 				<logger level="INFO" doc:name="Logger" doc:id="13d9c9da-3a34-41dc-9cbf-bf0e4aa1778a" message="Check mainframe: #[payload]" />
 			</when>
 			<otherwise >
+				<set-variable value="#[now()]" doc:name="msBeforeRequest" doc:id="5c47e663-7dcf-4893-aa15-6bbf32b11068" variableName="msBeforeRequest"/>
 				<http:request method="GET" doc:name="RequestReplayCloud" doc:id="bc2fb0de-e383-4806-833e-7c9e6dde94cf" config-ref="HTTP_Request_configuration" path="/address">
 					<http:query-params ><![CDATA[#[output application/java
 ---
@@ -135,12 +161,14 @@ default "") ++ payload.lastName) ++ payload.age as String) ++ payload.isStudent 
 	lastName : vars.lastName
 }]]]></http:query-params>
 				</http:request>
+				<set-variable value="#[now()]" doc:name="msAfterRequest" doc:id="f08d4b23-c391-4b61-87ee-621281829eb8" variableName="msAfterRequest"/>
 				<logger level="INFO" doc:name="Logger" doc:id="87d650b2-ca71-4b9d-b896-e4ac42a6c4b2" message="Check cloud:  #[payload]" />
 			</otherwise>
 		</choice>
-		<ee:transform doc:name="Transform Message" doc:id="ff18d1e4-b014-4f1d-b4cd-479c30a726ef" >
-			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
+		<logger level="INFO" doc:name="Logger" doc:id="226129f7-6eef-4cc5-8ca8-c28c3214839a" message="#[vars.msAfterRequest - vars.msBeforeRequest]"/>
+		<ee:transform doc:name="Transform Message" doc:id="ff18d1e4-b014-4f1d-b4cd-479c30a726ef">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
 output application/json
 
 ---
@@ -155,6 +183,8 @@ output application/json
   "registrationDate": payload.registrationDate,
   "email": payload.email,
   "website": payload.website,
+  "runtimePrimarySystem": payload.runtimePrimarySystem,
+  "runtimeSecodary": vars.msAfterRequest - vars.msBeforeRequest,
 	message: ((((((((((payload.firstName
 default "") ++ payload.lastName) ++ payload.age as String) ++ payload.isStudent as String ++ payload.hobbies[0]) ++ payload.address.street) ++ payload.address.city) ++ payload.address.zipCode) ++ payload.birthDate) ++ payload.registrationDate) ++ payload.email) ++ payload.website
 }]]></ee:set-payload>
@@ -170,6 +200,7 @@ default "") ++ payload.lastName) ++ payload.age as String) ++ payload.isStudent 
 				<logger level="INFO" doc:name="Logger" doc:id="d4a38e0b-7598-4ed7-ace6-c651a85863d4" message="ist nicht gleich!"/>
 			</otherwise>
 		</choice>
+		<flow-ref doc:name="Flow Reference" doc:id="28040384-dd12-49c0-8456-a569365627b2" name="writeMetricsToFile" />
 		<ee:transform doc:name="Transform Message" doc:id="c0f287dc-aca4-4f89-82d9-6e1e1d53e544" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
@@ -180,5 +211,9 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+	</flow>
+	<flow name="getReplayFlow" doc:id="e853653f-035b-491f-96b7-4aa26bc7c9e8" >
+		<file:read doc:name="Read" doc:id="12974fe5-b2b1-46b4-84b7-8ee834a95f3a" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json"/>
+		<logger level="INFO" doc:name="Logger" doc:id="3df5a780-f318-4589-a69a-4e8bab1ac1ec" message="#[payload]"/>
 	</flow>
 </mule>
