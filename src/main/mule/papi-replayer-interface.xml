@@ -3,7 +3,7 @@
     <http:listener-config name="papi-replayer-httpListenerConfig">
         <http:listener-connection host="0.0.0.0" port="8081" />
     </http:listener-config>
-    <apikit:config name="papi-replayer-config" api="resource::e1a72ac9-8ac1-401b-96c7-45394cd7dc76:papi-replayer:1.0.3:raml:zip:papi-replayer.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <apikit:config name="papi-replayer-config" api="resource::e1a72ac9-8ac1-401b-96c7-45394cd7dc76:papi-replayer:1.0.5:raml:zip:papi-replayer.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
     <flow name="papi-replayer-main">
         <http:listener config-ref="papi-replayer-httpListenerConfig" path="/api/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
@@ -128,5 +128,20 @@ output application/json
     </flow>
     <flow name="get:\replay:papi-replayer-config">
         <flow-ref doc:name="Flow Reference" doc:id="6d7fff04-287c-4e46-81f2-4bf3d3d4e786" name="getReplayFlow" />
+    </flow>
+    <flow name="get:\metrics:papi-replayer-config">
+        <ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  runtimePrimarySystem: 123,
+  runtimeSecondarySystem: 456,
+  isEqual: true,
+  timestamp: "2023-11-09T21:28:44.563+01:00"
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
     </flow>
 </mule>

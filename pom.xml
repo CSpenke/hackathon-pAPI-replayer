@@ -64,7 +64,7 @@
 		<dependency>
 			<groupId>e1a72ac9-8ac1-401b-96c7-45394cd7dc76</groupId>
 			<artifactId>papi-replayer</artifactId>
-			<version>1.0.3</version>
+			<version>1.0.5</version>
 			<classifier>raml</classifier>
 			<type>zip</type>
 		</dependency>

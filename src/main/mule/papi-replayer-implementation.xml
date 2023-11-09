@@ -21,7 +21,7 @@ output application/json
 ---
 {
 	"runtimePrimarySystem": vars.runtimePrimarySystem,
-	"runtimeSecondary": period as Number {unit: "milliseconds"},
+	"runtimeSecondarySystem": period as Number {unit: "milliseconds"},
 	"isEqual": vars.primarySystemOutputAsString == payload.message,
 	"timestamp": now() >> "Europe/Berlin"
 }]]></ee:set-payload>
