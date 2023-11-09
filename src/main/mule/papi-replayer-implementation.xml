@@ -27,6 +27,17 @@ output application/json
 }]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+		<set-variable value="#[payload]" doc:name="setNewData" doc:id="f0bb67ca-5ff1-49e7-9fb4-3ae3a8121d57" variableName="NewData"/>
+		<file:read doc:name="Read" doc:id="304d5021-7e0a-4a9f-878b-017b6d52dcfb" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json"/>
+		<ee:transform doc:name="Transform Message" doc:id="cc49b155-a35b-4ca0-94c5-c1c6e2777b7e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload << vars.NewData
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
 		<file:write doc:name="Write" doc:id="8216962a-224c-4437-b0a1-105aa8213d4d" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json" mode="APPEND">
 		</file:write>
 	</sub-flow>
