@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="4f6d078a-bbc7-4de5-bf7b-ac560534bd4b" basePath="/api" >
+		<http:request-connection host="address-rest-service.us-e2.cloudhub.io" />
+	</http:request-config>
+	<sub-flow name="writeToFileSubFlow" doc:id="6ea88f3b-ebcd-472a-9687-ed4601432fc2" >
+		<set-variable value="C:\Users\ksteven\AnypointStudio\studio-workspace\papi-replayer\src\main\resources\store.csv" doc:name="SetRecordPath" doc:id="87945201-f40a-407f-98a9-4016bb3bdaf7" variableName="setRecordPath" />
+		<ee:transform doc:name="Transform Message" doc:id="f4be3275-7b25-43c4-99f4-93b22153b631">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+---
+{
+  "firstName": payload.firstName,
+  "lastName": payload.lastName,
+  "age": payload.age,
+  "isStudent": payload.isStudent,
+  "hobbies": payload.hobbies reduce(x, out) -> out ++ x,
+  "address": payload.address.street ++', ' ++ payload.address.city ++', ' ++ payload.address.zipCode,
+  "birthDate": payload.birthDate,
+  "registrationDate": payload.registrationDate,
+  "email": payload.email,
+  "website": payload.website,
+  "qpFirstName": vars.firstName,
+  "qpLastName": vars.lastName,
+  "qpSwitchToCloud": vars.switchToCloud
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="cd52d2b1-85d7-44e5-99f3-d8cf2e60ea19" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv quoteValues=true, header=false
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="1b521441-d80f-4617-bc5e-deab9523f545" path="#[vars.setRecordPath]" mode="APPEND" />
+	</sub-flow>
+	<flow name="postReplayer" doc:id="d3a00f09-5245-48b2-8d2d-20bc527dbc7b" >
+		<logger level="INFO" doc:name="Logger" doc:id="81ec6ce4-87a4-4b4f-9341-3c87f5060a57" message="Log payload in replayer: #[payload]"/>
+		<set-variable value="#[message.attributes.queryParams.firstName]" doc:name="SetFirstName" doc:id="d355e287-5ab2-4548-93ae-688c582ef184" variableName="firstName"/>
+		<set-variable value="#[message.attributes.queryParams.lastName]" doc:name="SetLastName" doc:id="4a1da8d4-8aa6-43d2-a820-8c10ba04c0d1" variableName="lastName"/>
+		<set-variable value="#[message.attributes.queryParams.switchToCloud as Boolean]" doc:name="SetSwitchToCloud" doc:id="00159083-6736-48f6-91aa-c758a36716d2" variableName="switchToCloud"/>
+		<ee:transform doc:name="Transform Message" doc:id="f2261000-4718-4c6c-8bf9-6c72a13c8e8b">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+---
+{
+  "firstName": payload.firstName,
+  "lastName": payload.lastName,
+  "age": payload.age,
+  "isStudent": payload.isStudent,
+  "hobbies": payload.hobbies,
+  "address": payload.address,
+  "birthDate": payload.birthDate,
+  "registrationDate": payload.registrationDate,
+  "email": payload.email,
+  "website": payload.website,
+	message: ((((((((((payload.firstName
+default "") ++ payload.lastName) ++ payload.age as String) ++ payload.isStudent as String ++ payload.hobbies[0]) ++ payload.address.street) ++ payload.address.city) ++ payload.address.zipCode) ++ payload.birthDate) ++ payload.registrationDate) ++ payload.email) ++ payload.website
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload.message]" doc:name="SetPrimarySystemOutputAsString" doc:id="f02bcffb-752f-456e-aa94-8b449cc4f4df" variableName="primarySystemOutputAsString"/>
+		<logger level="INFO" doc:name="Logger" doc:id="7ce7a264-4c39-4965-9ba4-c3ced665292e" message="#['primary system string' ++ vars.primarySystemOutputAsString]"/>
+		<flow-ref doc:name="Flow Reference" doc:id="b68ef953-9618-4f72-8f64-a7d2ac5b34ab" name="writeToFileSubFlow" />
+		<choice doc:name="Choice" doc:id="6e8d2d9a-e436-40de-b4df-a3779e852b51" >
+			<when expression="#[vars.switchToCloud == true]">
+				<http:request method="GET" doc:name="Request Replay Mainframe" doc:id="c288dbff-530d-4e7a-a3c9-0fb8db4de1ec" config-ref="HTTP_Request_configuration" path="/real_address">
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	firstName : vars.firstName,
+	lastName : vars.lastName
+}]]]></http:query-params>
+				</http:request>
+				<logger level="INFO" doc:name="Logger" doc:id="13d9c9da-3a34-41dc-9cbf-bf0e4aa1778a" message="Check mainframe: #[payload]" />
+			</when>
+			<otherwise >
+				<http:request method="GET" doc:name="RequestReplayCloud" doc:id="bc2fb0de-e383-4806-833e-7c9e6dde94cf" config-ref="HTTP_Request_configuration" path="/address">
+					<http:query-params ><![CDATA[#[output application/java
+---
+{
+	firstName : vars.firstName,
+	lastName : vars.lastName
+}]]]></http:query-params>
+				</http:request>
+				<logger level="INFO" doc:name="Logger" doc:id="87d650b2-ca71-4b9d-b896-e4ac42a6c4b2" message="Check cloud:  #[payload]" />
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="ff18d1e4-b014-4f1d-b4cd-479c30a726ef" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+---
+{
+  "firstName": payload.firstName,
+  "lastName": payload.lastName,
+  "age": payload.age,
+  "isStudent": payload.isStudent,
+  "hobbies": payload.hobbies,
+  "address": payload.address,
+  "birthDate": payload.birthDate,
+  "registrationDate": payload.registrationDate,
+  "email": payload.email,
+  "website": payload.website,
+	message: ((((((((((payload.firstName
+default "") ++ payload.lastName) ++ payload.age as String) ++ payload.isStudent as String ++ payload.hobbies[0]) ++ payload.address.street) ++ payload.address.city) ++ payload.address.zipCode) ++ payload.birthDate) ++ payload.registrationDate) ++ payload.email) ++ payload.website
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice" doc:id="2647bced-583d-445f-90d3-24cd2947ab92" >
+			<when expression="#[vars.primarySystemOutputAsString == payload.message]">
+				<logger level="INFO" doc:name="Logger" doc:id="40b3a789-1974-4a38-b28a-e4f430ec51e6" message="ist gleich!"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="d4a38e0b-7598-4ed7-ace6-c651a85863d4" message="ist nicht gleich!"/>
+			</otherwise>
+		</choice>
+	</flow>
+</mule>
