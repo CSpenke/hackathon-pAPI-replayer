@@ -3,7 +3,7 @@
     <http:listener-config name="papi-replayer-httpListenerConfig">
         <http:listener-connection host="0.0.0.0" port="8081" />
     </http:listener-config>
-    <apikit:config name="papi-replayer-config" api="resource::e1a72ac9-8ac1-401b-96c7-45394cd7dc76:papi-replayer:1.0.5:raml:zip:papi-replayer.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <apikit:config name="papi-replayer-config" api="resource::e1a72ac9-8ac1-401b-96c7-45394cd7dc76:papi-replayer:1.0.6:raml:zip:papi-replayer.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
     <flow name="papi-replayer-main">
         <http:listener config-ref="papi-replayer-httpListenerConfig" path="/api/*">
             <http:response statusCode="#[vars.httpStatus default 200]">
