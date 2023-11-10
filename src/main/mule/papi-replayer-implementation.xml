@@ -28,18 +28,38 @@ output application/json
 			</ee:message>
 		</ee:transform>
 		<set-variable value="#[payload]" doc:name="setNewData" doc:id="f0bb67ca-5ff1-49e7-9fb4-3ae3a8121d57" variableName="NewData"/>
-		<file:read doc:name="Read" doc:id="304d5021-7e0a-4a9f-878b-017b6d52dcfb" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json"/>
-		<ee:transform doc:name="Transform Message" doc:id="cc49b155-a35b-4ca0-94c5-c1c6e2777b7e" >
+		<file:list doc:name="List" doc:id="fd06c345-a4b4-4fe8-be31-3862542421c8" directoryPath="${mule.home}/apps/${app.name}"/>
+		<ee:transform doc:name="Transform Message" doc:id="482a7ea4-f8cf-4224-ad16-67410ef211a1" >
 			<ee:message >
 				<ee:set-payload ><![CDATA[%dw 2.0
-output application/json
+output application/java
 ---
-payload << vars.NewData
+filter(payload, (files, index) -> files.attributes.fileName == "metricsMSSecondary.json")
 ]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
-		<file:write doc:name="Write" doc:id="8216962a-224c-4437-b0a1-105aa8213d4d" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json" mode="APPEND">
+		<set-variable value="#[payload.attributes != null]" doc:name="setFileExists" doc:id="39284f4b-caec-48b6-98ce-6c3a53f18b72" variableName="fileExists"/>
+		<choice doc:name="Choice" doc:id="a529cbc3-2cc2-480b-ad6c-6c9bd3fa7674" >
+			<when expression="#[vars.fileExists]">
+				<file:read doc:name="Read" doc:id="304d5021-7e0a-4a9f-878b-017b6d52dcfb" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json" />
+				<ee:transform doc:name="Transform Message" doc:id="cc49b155-a35b-4ca0-94c5-c1c6e2777b7e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload + vars.NewData
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+				<file:write doc:name="Write" doc:id="8216962a-224c-4437-b0a1-105aa8213d4d" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json">
 		</file:write>
+			</when>
+			<otherwise >
+				<file:write doc:name="Write" doc:id="0ec7ea19-4ec7-4d32-81f1-5e481c04909b" path="${mule.home}/apps/${app.name}/metricsMSSecondary.json" mode="APPEND" >
+					<file:content ><![CDATA[#[[vars.NewData]]]]></file:content>
+				</file:write>
+			</otherwise>
+		</choice>
 	</sub-flow>
 	<sub-flow name="writeSecondaryToFile" doc:id="64f73bc6-42ed-406e-bde5-0c2dbe55a4a6" >
 		<set-variable value="${mule.home}/apps/${app.name}/recordSecondary.csv" doc:name="setSecondaryRecordPath" doc:id="2b015989-18a2-4863-9c37-829a3551d396" variableName="setSecondaryRecordPath"/>
